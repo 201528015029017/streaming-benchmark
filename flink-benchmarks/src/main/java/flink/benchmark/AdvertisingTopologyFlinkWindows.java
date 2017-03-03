@@ -11,7 +11,7 @@ import flink.benchmark.utils.ThroughputLogger;
 import net.minidev.json.JSONObject;
 import net.minidev.json.parser.JSONParser;
 import org.apache.flink.api.common.functions.*;
-import org.apache.flink.api.common.state.OperatorState;
+import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -21,10 +21,11 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.WindowedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.TimestampExtractor;
+import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.triggers.TriggerResult;
@@ -68,7 +69,7 @@ public class AdvertisingTopologyFlinkWindows {
       .filter(new EventFilterBolt())
       .<Tuple2<String, String>>project(2, 5) //ad_id, event_time
       .flatMap(new RedisJoinBolt(config)) // campaign_id, event_time
-      .assignTimestamps(new AdTimestampExtractor()); // extract timestamps and generate watermarks from event_time
+      .assignTimestampsAndWatermarks(new AdTimestampExtractor()); // extract timestamps and generate watermarks from event_time
 
     WindowedStream<Tuple3<String, String, Long>, Tuple, TimeWindow> windowStream = joinedAdImpressions
       .map(new MapToImpressionCount())
@@ -80,7 +81,7 @@ public class AdvertisingTopologyFlinkWindows {
 
     // campaign_id, window end time, count
     DataStream<Tuple3<String, String, Long>> result =
-      windowStream.apply(sumReduceFunction(), sumWindowFunction());
+      windowStream.reduce(sumReduceFunction(), sumWindowFunction());
 
     // write result to redis
     if (config.getParameters().has("add.result.sink.optimized")) {
@@ -182,7 +183,7 @@ public class AdvertisingTopologyFlinkWindows {
     public TriggerResult onElement(Object element, long timestamp, TimeWindow window, TriggerContext ctx) throws Exception {
       ctx.registerEventTimeTimer(window.maxTimestamp());
       // register system timer only for the first time
-      OperatorState<Boolean> firstTimerSet = ctx.getKeyValueState("firstTimerSet", Boolean.class, false);
+      ValueState<Boolean> firstTimerSet = ctx.getKeyValueState("firstTimerSet", Boolean.class, false);
       if (!firstTimerSet.value()) {
         ctx.registerProcessingTimeTimer(System.currentTimeMillis() + 1000L);
         firstTimerSet.update(true);
@@ -201,6 +202,9 @@ public class AdvertisingTopologyFlinkWindows {
       ctx.registerProcessingTimeTimer(System.currentTimeMillis() + 1000L);
       return TriggerResult.FIRE;
     }
+
+    @Override
+    public void clear(TimeWindow window, TriggerContext ctx) {}
   }
 
   /**
@@ -215,7 +219,7 @@ public class AdvertisingTopologyFlinkWindows {
     public void flatMap(String input, Collector<Tuple7<String, String, String, String, String, String, String>> out)
       throws Exception {
       if (parser == null) {
-        parser = new JSONParser();
+        parser = new JSONParser(JSONParser.MODE_JSON_SIMPLE);
       }
       JSONObject obj = (JSONObject) parser.parse(input);
 
@@ -281,26 +285,20 @@ public class AdvertisingTopologyFlinkWindows {
   /**
    * Generate timestamp and watermarks for data stream
    */
-  private static class AdTimestampExtractor implements TimestampExtractor<Tuple2<String, String>> {
+  private static class AdTimestampExtractor implements AssignerWithPeriodicWatermarks<Tuple2<String, String>> {
 
     long maxTimestampSeen = 0;
 
     @Override
-    public long extractTimestamp(Tuple2<String, String> element, long currentTimestamp) {
+    public long extractTimestamp(Tuple2<String, String> element, long previousElementTimestamp) {
       long timestamp = Long.parseLong(element.f1);
       maxTimestampSeen = Math.max(timestamp, maxTimestampSeen);
       return timestamp;
     }
 
     @Override
-    public long extractWatermark(Tuple2<String, String> element, long currentTimestamp) {
-      return Long.MIN_VALUE;
-    }
-
-    @Override
-    public long getCurrentWatermark() {
-      long watermark = maxTimestampSeen - 1L;
-      return watermark;
+    public Watermark getCurrentWatermark() {
+      return new Watermark(maxTimestampSeen - 1L);
     }
   }
 

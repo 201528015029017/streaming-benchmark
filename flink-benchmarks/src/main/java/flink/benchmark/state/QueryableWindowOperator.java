@@ -22,19 +22,23 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import com.typesafe.config.Config;
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.migration.streaming.runtime.tasks.StreamTaskState;
 import org.apache.flink.runtime.akka.AkkaUtils;
-import org.apache.flink.runtime.state.AbstractStateBackend;
-import org.apache.flink.runtime.state.AsynchronousStateHandle;
-import org.apache.flink.runtime.state.StateHandle;
+import org.apache.flink.runtime.state.*;
+import org.apache.flink.streaming.api.functions.util.StreamingFunctionUtils;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
-import org.apache.flink.streaming.runtime.tasks.StreamTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -180,62 +184,86 @@ public class QueryableWindowOperator
 		lastWatermark = watermark.getTimestamp(); **/
   }
 
+  @Override
+  public void processLatencyMarker(LatencyMarker latencyMarker) {}
 
   @Override
-  public StreamTaskState snapshotOperatorState(final long checkpointId, final long timestamp) throws Exception {
-    StreamTaskState taskState = super.snapshotOperatorState(checkpointId, timestamp);
+  public void snapshotState(StateSnapshotContext context) throws Exception {
+    super.snapshotState(context);
 
-    synchronized (windows) {
-      final Map<String, Map<Long, CountAndAccessTime>> stateSnapshot = new HashMap<>(windows.size());
+    if (getOperatorStateBackend() != null) {
+      OperatorStateCheckpointOutputStream out;
 
-      for (Map.Entry<String, Map<Long, CountAndAccessTime>> window : windows.entrySet()) {
-        stateSnapshot.put(window.getKey(), new HashMap<>(window.getValue()));
+      try {
+        out = context.getRawOperatorStateOutput();
+      } catch (Exception e) {
+        throw new Exception("Could not open raw operator state stream for " +
+          getOperatorName() + ".", e);
       }
 
-      AsynchronousStateHandle<DataInputView> asyncState = new DataInputViewAsynchronousStateHandle(
-        checkpointId,
-        timestamp,
-        stateSnapshot,
-        getStateBackend());
+      try {
+        DataOutputViewStreamWrapper dov = new DataOutputViewStreamWrapper(out);
+        dov.writeInt(windows.size());
 
-      taskState.setOperatorState(asyncState);
-      return taskState;
+        for (Map.Entry<String, Map<Long, CountAndAccessTime>> campaign : windows.entrySet()) {
+          dov.writeUTF(campaign.getKey());
+          dov.writeInt(campaign.getValue().size());
+
+          for (Map.Entry<Long, CountAndAccessTime> window : campaign.getValue().entrySet()) {
+            dov.writeLong(window.getKey());
+            dov.writeLong(window.getValue().count);
+            dov.writeLong(window.getValue().lastAccessTime);
+            dov.writeLong(window.getValue().lastEventTime);
+          }
+        }
+      } catch (Exception e) {
+        throw new Exception("Could not write windows of " + getOperatorName() +
+                " to checkpoint state stream.", e);
+      } finally {
+        try {
+          out.close();
+        } catch (Exception closeException) {
+          LOG.warn("Could not close raw operator state stream for {}. This " +
+                  "might have prevented deleting some state data.", getOperatorName(), closeException);
+        }
+      }
+    }
+  }
+
+  @Override
+  public void initializeState(StateInitializationContext context) throws Exception {
+    super.initializeState(context);
+
+    if (getOperatorStateBackend() != null) {
+      this.windows.clear();
+
+      for (StatePartitionStreamProvider streamProvider : context.getRawOperatorStateInputs()) {
+        DataInputViewStreamWrapper div = new DataInputViewStreamWrapper(streamProvider.getStream());
+
+        int numOfCampaign = div.readInt();
+        for (int i = 0; i < numOfCampaign; i++) {
+          String campaign = div.readUTF();
+          Map<Long, CountAndAccessTime> window = new HashMap<>();
+          windows.put(campaign, window);
+
+          int numOfKeys = div.readInt();
+
+          for (int j = 0; j < numOfKeys; j++) {
+            long key = div.readLong();
+            CountAndAccessTime value = new CountAndAccessTime();
+            value.count = div.readLong();
+            value.lastAccessTime = div.readLong();
+            value.lastEventTime = div.readLong();
+            window.put(key, value);
+          }
+        }
+      }
     }
   }
 
   @Override
   public void notifyOfCompletedCheckpoint(long checkpointId) throws Exception {
     super.notifyOfCompletedCheckpoint(checkpointId);
-  }
-
-  @Override
-  public void restoreState(StreamTaskState taskState, long recoveryTimestamp) throws Exception {
-    super.restoreState(taskState, recoveryTimestamp);
-
-    @SuppressWarnings("unchecked")
-    StateHandle<DataInputView> inputState = (StateHandle<DataInputView>) taskState.getOperatorState();
-    DataInputView in = inputState.getState(getUserCodeClassloader());
-
-    int numWindows = in.readInt();
-
-    this.windows = new HashMap<>(numWindows);
-
-    for (int i = 0; i < numWindows; i++) {
-      String campaign = in.readUTF();
-      Map<Long, CountAndAccessTime> window = new HashMap<>();
-      windows.put(campaign, window);
-
-      int numKeys = in.readInt();
-
-      for (int j = 0; j < numKeys; j++) {
-        long key = in.readLong(); // ts
-        CountAndAccessTime value = new CountAndAccessTime();
-        value.count = in.readLong();
-        value.lastAccessTime = in.readLong();
-        value.lastEventTime = in.readLong();
-        window.put(key, value);
-      }
-    }
   }
 
   /**
@@ -326,57 +354,6 @@ public class QueryableWindowOperator
 
         actorSystem = null;
       }
-    }
-  }
-
-  private static class DataInputViewAsynchronousStateHandle extends AsynchronousStateHandle<DataInputView> {
-
-    private final long checkpointId;
-    private final long timestamp;
-    private Map<String, Map<Long, CountAndAccessTime>> stateSnapshot;
-    private AbstractStateBackend backend;
-    private long size = 0;
-
-    public DataInputViewAsynchronousStateHandle(long checkpointId,
-                                                long timestamp,
-                                                Map<String, Map<Long, CountAndAccessTime>> stateSnapshot,
-                                                AbstractStateBackend backend) {
-      this.checkpointId = checkpointId;
-      this.timestamp = timestamp;
-      this.stateSnapshot = stateSnapshot;
-      this.backend = backend;
-    }
-
-    @Override
-    public StateHandle<DataInputView> materialize() throws Exception {
-      AbstractStateBackend.CheckpointStateOutputView out = backend.createCheckpointStateOutputView(
-        checkpointId,
-        timestamp);
-
-      int numWindows = stateSnapshot.size();
-      out.writeInt(numWindows);
-
-
-      for (Map.Entry<String, Map<Long, CountAndAccessTime>> window : stateSnapshot.entrySet()) {
-        out.writeUTF(window.getKey());
-        int numKeys = window.getValue().size();
-        out.writeInt(numKeys);
-
-        for (Map.Entry<Long, CountAndAccessTime> value : window.getValue().entrySet()) {
-          out.writeLong(value.getKey());
-          out.writeLong(value.getValue().count);
-          out.writeLong(value.getValue().lastAccessTime);
-          out.writeLong(value.getValue().lastEventTime);
-        }
-      }
-
-      this.size = out.size();
-      return out.closeAndGetHandle();
-    }
-
-    @Override
-    public long getStateSize() throws Exception {
-      return size;
     }
   }
 }
