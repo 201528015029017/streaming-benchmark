@@ -11,7 +11,7 @@ import flink.benchmark.generator.EventGeneratorSource;
 import flink.benchmark.generator.RedisHelper;
 import flink.benchmark.utils.ThroughputLogger;
 import org.apache.flink.api.common.functions.*;
-import org.apache.flink.api.common.state.OperatorState;
+import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
@@ -81,7 +81,7 @@ public class AdvertisingTopologyFlinkWindows {
 
     // campaign_id, window end time, count
     DataStream<Tuple3<String, String, Long>> result =
-        windowStream.apply(sumReduceFunction(), sumWindowFunction());
+        windowStream.reduce(sumReduceFunction(), sumWindowFunction());
 
     // write result to redis
     if (config.getParameters().has("add.result.sink.optimized")) {
@@ -177,7 +177,7 @@ public class AdvertisingTopologyFlinkWindows {
     public TriggerResult onElement(Object element, long timestamp, TimeWindow window, TriggerContext ctx) throws Exception {
       ctx.registerEventTimeTimer(window.maxTimestamp());
       // register system timer only for the first time
-      OperatorState<Boolean> firstTimerSet = ctx.getKeyValueState("firstTimerSet", Boolean.class, false);
+      ValueState<Boolean> firstTimerSet = ctx.getKeyValueState("firstTimerSet", Boolean.class, false);
       if (!firstTimerSet.value()) {
         ctx.registerProcessingTimeTimer(System.currentTimeMillis() + 1000L);
         firstTimerSet.update(true);
@@ -196,6 +196,9 @@ public class AdvertisingTopologyFlinkWindows {
       ctx.registerProcessingTimeTimer(System.currentTimeMillis() + 1000L);
       return TriggerResult.FIRE;
     }
+
+    @Override
+    public void clear(TimeWindow window, TriggerContext ctx) {}
   }
 
   /**
@@ -277,7 +280,7 @@ public class AdvertisingTopologyFlinkWindows {
     long maxTimestampSeen = 0;
 
     @Override
-    public long extractTimestamp(Tuple2<String, String> element, long currentTimestamp) {
+    public long extractTimestamp(Tuple2<String, String> element, long previousElementTimestamp) {
       long timestamp = Long.parseLong(element.f1);
       maxTimestampSeen = Math.max(timestamp, maxTimestampSeen);
       return timestamp;
