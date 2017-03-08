@@ -5,7 +5,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer09;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FixedPartitioner;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 
@@ -26,7 +26,7 @@ public class StaticStringRepeater {
 
     DataStream<String> adImpressions = env.addSource(new StringRepeater(parameterTool));
     adImpressions.flatMap(new ThroughputLogger<>(240, 1_000_000));
-    adImpressions.addSink(new FlinkKafkaProducer09<>(parameterTool.getRequired("kafka.topic"), new SimpleStringSchema(), parameterTool.getProperties(), new FixedPartitioner<>()));
+    adImpressions.addSink(new FlinkKafkaProducer010<>(parameterTool.getRequired("kafka.topic"), new SimpleStringSchema(), parameterTool.getProperties(), new FixedPartitioner<>()));
 
     env.execute("StaticStringRepeater" + parameterTool.toMap().toString());
   }

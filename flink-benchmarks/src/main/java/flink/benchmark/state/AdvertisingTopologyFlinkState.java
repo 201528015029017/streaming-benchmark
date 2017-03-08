@@ -22,7 +22,7 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer09;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
@@ -100,11 +100,11 @@ public class AdvertisingTopologyFlinkState {
   /**
    * Create a Kafka source
    */
-  private static FlinkKafkaConsumer09<String> kafkaSource(BenchmarkConfig config) {
-    return new FlinkKafkaConsumer09<>(
-        config.kafkaTopic,
-        new SimpleStringSchema(),
-        config.getParameters().getProperties());
+  private static FlinkKafkaConsumer010<String> kafkaSource(BenchmarkConfig config) {
+    return new FlinkKafkaConsumer010<>(
+      config.kafkaTopic,
+      new SimpleStringSchema(),
+      config.getParameters().getProperties());
   }
 
   /**
