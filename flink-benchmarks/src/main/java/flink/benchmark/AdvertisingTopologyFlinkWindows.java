@@ -30,7 +30,7 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.triggers.TriggerResult;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer082;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
@@ -167,8 +167,8 @@ public class AdvertisingTopologyFlinkWindows {
   /**
    * Configure Kafka source
    */
-  private static FlinkKafkaConsumer082<String> kafkaSource(BenchmarkConfig config) {
-    return new FlinkKafkaConsumer082<>(
+  private static FlinkKafkaConsumer010<String> kafkaSource(BenchmarkConfig config) {
+    return new FlinkKafkaConsumer010<>(
       config.kafkaTopic,
       new SimpleStringSchema(),
       config.getParameters().getProperties());
