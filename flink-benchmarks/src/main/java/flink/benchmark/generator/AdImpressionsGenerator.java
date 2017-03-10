@@ -39,11 +39,11 @@ public class AdImpressionsGenerator {
     adImpressions.flatMap(new ThroughputLogger<>(240, 1_000_000));
 
     adImpressions.addSink(new FlinkKafkaProducer010<>(
-        benchmarkConfig.kafkaTopic,
-        new SimpleStringSchema(),
-        benchmarkConfig.getParameters().getProperties(),
-        new FixedPartitioner<>()));
+      benchmarkConfig.kafkaTopic,
+      new SimpleStringSchema(),
+      benchmarkConfig.getParameters().getProperties(),
+      new FixedPartitioner()));
 
-    env.execute("Ad Impressions data generator " + benchmarkConfig.getParameters().toMap().toString());
+    env.execute("Data Generator");
   }
 }
