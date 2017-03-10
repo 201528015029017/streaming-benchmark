@@ -21,7 +21,7 @@ Licensed under the terms of the Apache License 2.0. Please see LICENSE file in t
         <storm.version>1.0.0</storm.version>
         <scala.binary.version>2.10</scala.binary.version>
         <scala.version>2.10.4</scala.version>
-        <json.version>20141113</json.version>
+        <json.version>20140107</json.version>
         <jedis.version>2.4.2</jedis.version>
         <sedis.version>1.2.2</sedis.version>
         <slf4j.version>1.7.7</slf4j.version>
@@ -125,9 +125,9 @@ Licensed under the terms of the Apache License 2.0. Please see LICENSE file in t
 
     <modules>
         <module>streaming-benchmark-common</module>
-        <module>storm-benchmarks</module>
+        <!--<module>storm-benchmarks</module>-->
         <module>flink-benchmarks</module>
-        <module>spark-benchmarks</module>
+        <!--<module>spark-benchmarks</module>-->
     </modules>
 
     <build>

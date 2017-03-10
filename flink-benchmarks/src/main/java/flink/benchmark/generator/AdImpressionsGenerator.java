@@ -48,7 +48,7 @@ public class AdImpressionsGenerator {
       benchmarkConfig.getParameters().getProperties(),
       new FixedPartitioner()));
 
-		env.execute("Ad Impressions data generator " + benchmarkConfig.getParameters().toMap().toString());
+		env.execute("Data Generator");
 	}
 
 
