@@ -137,9 +137,12 @@ public class AdvertisingTopologyFlinkWindows {
    * Sum - window reduce function
    */
   private static ReduceFunction<Tuple3<String, String, Long>> sumReduceFunction() {
-    return (ReduceFunction<Tuple3<String, String, Long>>) (t0, t1) -> {
-      t0.f2 += t1.f2;
-      return t0;
+    return new ReduceFunction<Tuple3<String, String, Long>>() {
+      @Override
+      public Tuple3<String, String, Long> reduce(Tuple3<String, String, Long> t0, Tuple3<String, String, Long> t1) throws Exception {
+        t0.f2 += t1.f2;
+        return t0;
+      }
     };
   }
 
@@ -147,14 +150,17 @@ public class AdvertisingTopologyFlinkWindows {
    * Sum - Window function, summing already happened in reduce function
    */
   private static WindowFunction<Tuple3<String, String, Long>, Tuple3<String, String, Long>, Tuple, TimeWindow> sumWindowFunction() {
-    return (WindowFunction<Tuple3<String, String, Long>, Tuple3<String, String, Long>, Tuple, TimeWindow>) (keyTuple, window, values, out) -> {
-      Iterator<Tuple3<String, String, Long>> valIter = values.iterator();
-      Tuple3<String, String, Long> tuple = valIter.next();
-      if (valIter.hasNext()) {
-        throw new IllegalStateException("Unexpected");
+    return new WindowFunction<Tuple3<String, String, Long>, Tuple3<String, String, Long>, Tuple, TimeWindow>() {
+      @Override
+      public void apply(Tuple keyTuple, TimeWindow window, Iterable<Tuple3<String, String, Long>> values, Collector<Tuple3<String, String, Long>> out) throws Exception {
+        Iterator<Tuple3<String, String, Long>> valIter = values.iterator();
+        Tuple3<String, String, Long> tuple = valIter.next();
+        if (valIter.hasNext()) {
+          throw new IllegalStateException("Unexpected");
+        }
+        tuple.f1 = Long.toString(window.getEnd());
+        out.collect(tuple); // collect end time here
       }
-      tuple.f1 = Long.toString(window.getEnd());
-      out.collect(tuple); // collect end time here
     };
   }
 
