@@ -19,6 +19,8 @@ FLINK_VERSION=${FLINK_VERSION:-"1.2.0"}
 
 REDIS_DIR="/home/yelei/redis-3.0.7/"
 
+KAFKA_HOST="9.96.191.32"
+KAFKA_PORT="21005"
 ZK_HOST="9.96.191.32"
 ZK_PORT="24002"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
@@ -83,10 +85,10 @@ fetch_untar_file() {
 }
 
 create_kafka_topic() {
-    local count=`kafka-topics.sh --describe --zookeeper "$ZK_CONNECTIONS" --topic $TOPIC 2>/dev/null | grep -c $TOPIC`
+    local count=`kafka-topics.sh --describe --zookeeper "$ZK_CONNECTIONS"/kafka --topic $TOPIC 2>/dev/null | grep -c $TOPIC`
     if [[ "$count" = "0" ]];
     then
-        kafka-topics.sh --create --zookeeper "$ZK_CONNECTIONS" --replication-factor 1 --partitions $PARTITIONS --topic $TOPIC
+        kafka-topics.sh --create --zookeeper "$ZK_CONNECTIONS"/kafka --replication-factor 1 --partitions $PARTITIONS --topic $TOPIC
     else
         echo "Kafka topic $TOPIC already exists"
     fi
@@ -98,11 +100,11 @@ run() {
   then
 
     echo 'kafka.brokers:' > $CONF_FILE
-    echo '    - "localhost"' >> $CONF_FILE
-    echo 'kafka.port: 9092' >> $CONF_FILE
+    echo '    - "'$KAFKA_HOST'"' >> $CONF_FILE
+    echo 'kafka.port: 21005' >> $CONF_FILE
     echo 'kafka.topic: "'$TOPIC'"' >> $CONF_FILE
     echo 'kafka.partitions: '$PARTITIONS >> $CONF_FILE
-    echo 'kafka.zookeeper.path: /' >> $CONF_FILE
+    echo 'kafka.zookeeper.path: /kafka' >> $CONF_FILE
     echo >> $CONF_FILE
     echo 'akka.zookeeper.path: /akkaQuery' >> $CONF_FILE
     echo >> $CONF_FILE
@@ -126,10 +128,10 @@ run() {
     echo 'use.local.event.generator: 1' >> $CONF_FILE
     echo 'redis.flush: 1' >> $CONF_FILE
     echo 'redis.db: 0' >> $CONF_FILE
-    echo 'load.target.hz: 10000000' >> $CONF_FILE
+    echo 'load.target.hz: '$LOAD >> $CONF_FILE
     echo 'num.campaigns: 1000000' >> $CONF_FILE
-	
-    $MVN clean install -Dkafka.version="$KAFKA_VERSION" -Dflink.version="$FLINK_VERSION" -Dscala.binary.version="$SCALA_BIN_VERSION" -Dscala.version="$SCALA_BIN_VERSION.$SCALA_SUB_VERSION"
+
+    #$MVN clean install -Dkafka.version="$KAFKA_VERSION" -Dflink.version="$FLINK_VERSION" -Dscala.binary.version="$SCALA_BIN_VERSION" -Dscala.version="$SCALA_BIN_VERSION.$SCALA_SUB_VERSION"
 
   elif [ "START_REDIS" = "$OPERATION" ];
   then
@@ -147,7 +149,7 @@ run() {
     echo ""
   elif [ "START_LOAD" = "$OPERATION" ];
   then
-    flink run -c flink.benchmark.generator.AdImpressionsGenerator ./flink-benchmarks/target/flink-benchmarks-0.1.0.jar $CONF_FILE &
+    flink run -c flink.benchmark.generator.AdImpressionsGenerator ./flink-benchmarks/target/flink-benchmarks-0.1.0.jar $CONF_FILEf &
   elif [ "STOP_LOAD" = "$OPERATION" ];
   then
     FLINK_ID=`flink list | grep 'Data Generator' | awk '{print $4}'; true`
