@@ -237,7 +237,7 @@ run() {
     cd ..
   elif [ "START_STORM_TOPOLOGY" = "$OPERATION" ];
   then
-    "$STORM_DIR/bin/storm" jar ./storm-benchmarks/target/storm-benchmarks-0.1.0.jar storm.benchmark.AdvertisingTopology test-topo -conf $CONF_FILE
+    "$STORM_DIR/bin/storm" jar ./storm-benchmarks/target/storm-benchmarks-0.2.0.jar storm.benchmark.AdvertisingTopology test-topo -conf $CONF_FILE
     sleep 15
   elif [ "STOP_STORM_TOPOLOGY" = "$OPERATION" ];
   then
@@ -245,14 +245,14 @@ run() {
     sleep 10
   elif [ "START_SPARK_PROCESSING" = "$OPERATION" ];
   then
-    "$SPARK_DIR/bin/spark-submit" --master spark://localhost:7077 --class spark.benchmark.KafkaRedisAdvertisingStream ./spark-benchmarks/target/spark-benchmarks-0.1.0.jar "$CONF_FILE" &
+    "$SPARK_DIR/bin/spark-submit" --master spark://localhost:7077 --class spark.benchmark.KafkaRedisAdvertisingStream ./spark-benchmarks/target/spark-benchmarks-0.2.0.jar "$CONF_FILE" &
     sleep 5
   elif [ "STOP_SPARK_PROCESSING" = "$OPERATION" ];
   then
     stop_if_needed spark.benchmark.KafkaRedisAdvertisingStream "Spark Client Process"
   elif [ "START_FLINK_PROCESSING" = "$OPERATION" ];
   then
-    "$FLINK_DIR/bin/flink" run ./flink-benchmarks/target/flink-benchmarks-0.1.0.jar $CONF_FILE &
+    "$FLINK_DIR/bin/flink" run ./flink-benchmarks/target/flink-benchmarks-0.2.0.jar $CONF_FILE &
     sleep 3
   elif [ "STOP_FLINK_PROCESSING" = "$OPERATION" ];
   then

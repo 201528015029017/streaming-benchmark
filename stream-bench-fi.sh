@@ -149,7 +149,7 @@ run() {
     echo ""
   elif [ "START_LOAD" = "$OPERATION" ];
   then
-    flink run -c flink.benchmark.generator.AdImpressionsGenerator ./flink-benchmarks/target/flink-benchmarks-0.1.0.jar $CONF_FILE &
+    flink run -c flink.benchmark.generator.AdImpressionsGenerator ./flink-benchmarks/target/flink-benchmarks-0.2.0.jar $CONF_FILE &
   elif [ "STOP_LOAD" = "$OPERATION" ];
   then
     FLINK_ID=`flink list | grep 'Data Generator' | awk '{print $4}'; true`
@@ -162,7 +162,7 @@ run() {
     fi
   elif [ "START_FLINK_PROCESSING" = "$OPERATION" ];
   then
-    flink run -c flink.benchmark.AdvertisingTopologyNative ./flink-benchmarks/target/flink-benchmarks-0.1.0.jar $CONF_FILE &
+    flink run -c flink.benchmark.AdvertisingTopologyNative ./flink-benchmarks/target/flink-benchmarks-0.2.0.jar $CONF_FILE &
     sleep 3
   elif [ "STOP_FLINK_PROCESSING" = "$OPERATION" ];
   then
