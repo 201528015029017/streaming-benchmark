@@ -138,6 +138,7 @@ run() {
     start_if_needed redis-server Redis 1 "$REDIS_DIR/src/redis-server"
   elif [ "STOP_REDIS" = "$OPERATION" ];
   then
+    java -cp flink-benchmarks/target/flink-benchmarks-0.2.0.jar flink.benchmark.utils.RedisAnalyzeTool $CONF_FILE
     stop_if_needed redis-server Redis
     rm -f "$REDIS_DIR/dump.rdb"
   elif [ "START_KAFKA" = "$OPERATION" ];
