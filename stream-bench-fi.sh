@@ -19,10 +19,11 @@ FLINK_VERSION=${FLINK_VERSION:-"1.2.0"}
 
 REDIS_DIR="/home/yelei/redis-3.0.7/"
 
-KAFKA_HOST="9.96.191.32"
+KAFKA_HOST="9.91.8.218"
 KAFKA_PORT="21005"
-ZK_HOST="9.96.191.32"
+ZK_HOST="9.91.8.218"
 ZK_PORT="24002"
+REDIS_HOST="9.91.8.218"
 ZK_CONNECTIONS="$ZK_HOST:$ZK_PORT"
 TOPIC=${TOPIC:-"ad-events"}
 PARTITIONS=${PARTITIONS:-1}
@@ -112,7 +113,7 @@ run() {
     echo '    - "'$ZK_HOST'"' >> $CONF_FILE
     echo 'zookeeper.port: '$ZK_PORT >> $CONF_FILE
     echo >> $CONF_FILE
-    echo 'redis.host: "localhost"' >> $CONF_FILE
+    echo 'redis.host: "'$REDIS_HOST'"' >> $CONF_FILE
     echo >> $CONF_FILE
     echo 'process.hosts: 1' >> $CONF_FILE
     echo 'process.cores: 4' >> $CONF_FILE
@@ -163,7 +164,7 @@ run() {
     fi
   elif [ "START_FLINK_PROCESSING" = "$OPERATION" ];
   then
-    flink run -c flink.benchmark.AdvertisingTopologyNative ./flink-benchmarks/target/flink-benchmarks-0.2.0.jar $CONF_FILE &
+    flink run -c flink.benchmark.AdvertisingTopologyFlinkWindows ./flink-benchmarks/target/flink-benchmarks-0.2.0.jar $CONF_FILE &
     sleep 3
   elif [ "STOP_FLINK_PROCESSING" = "$OPERATION" ];
   then
@@ -186,6 +187,13 @@ run() {
     run "STOP_FLINK_PROCESSING"
     run "STOP_KAFKA"
     run "STOP_REDIS"
+  elif [ "FLINK_TEST_LOCAL" = "$OPERATION" ];
+  then
+    run "START_REDIS"
+    run "START_FLINK_PROCESSING"
+    sleep $TEST_TIME
+    run "STOP_FLINK_PROCESSING"
+    run "STOP_REDIS"
   else
     if [ "HELP" != "$OPERATION" ];
     then
@@ -200,6 +208,9 @@ run() {
     echo
     echo "START_FLINK_PROCESSING: run the flink test processing"
     echo "STOP_FLINK_PROCESSSING: kill the flink test processing"
+    echo
+    echo "FLINK_TEST: run the flink test suite"
+    echo "FLINK_TEST_LOCAL: run the flink test suite without kafka"
     echo
     echo "HELP: print out this message"
     echo

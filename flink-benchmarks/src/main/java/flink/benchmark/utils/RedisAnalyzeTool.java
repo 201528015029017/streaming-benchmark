@@ -52,9 +52,14 @@ public class RedisAnalyzeTool {
 		// System.out.println("lat-mean;lat-median;lat-90percentile;lat-95percentile;lat-99percentile;throughput-mean;throughput-max;latencies;throughputs;");
 		System.out.println("all-machines;" + latencies.getMean() + ";" + latencies.getPercentile(50) + ";" + latencies.getPercentile(90) + ";" + latencies.getPercentile(95) + ";" + latencies.getPercentile(99) + ";" + latencies.getN());
 
-		System.err.println("================= Latency  reports ) =====================");
+		System.out.println("================= Latency  reports ) =====================");
 
-		System.err.println("Mean latency " + latencies.getMean());
-		System.err.println("Median latency " + latencies.getPercentile(50));
+		System.out.println("Min latency " + latencies.getMin());
+		System.out.println("25% latency " + latencies.getPercentile(25));
+		System.out.println("Mean latency " + latencies.getMean());
+		System.out.println("Median latency " + latencies.getPercentile(50));
+		System.out.println("90% latency " + latencies.getPercentile(90));
+		System.out.println("95% latency " + latencies.getPercentile(95));
+		System.out.println("99% latency " + latencies.getPercentile(99));
 	}
 }
