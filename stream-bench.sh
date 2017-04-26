@@ -11,13 +11,13 @@ MVN=${MVN:-mvn}
 GIT=${GIT:-git}
 MAKE=${MAKE:-make}
 
-KAFKA_VERSION=${KAFKA_VERSION:-"0.9.0.1"}
+KAFKA_VERSION=${KAFKA_VERSION:-"0.10.0.1"}
 REDIS_VERSION=${REDIS_VERSION:-"3.2.3"}
 SCALA_BIN_VERSION=${SCALA_BIN_VERSION:-"2.11"}
 SCALA_SUB_VERSION=${SCALA_SUB_VERSION:-"8"}
 STORM_VERSION=${STORM_VERSION:-"1.0.0"}
 FLINK_VERSION=${FLINK_VERSION:-"1.2.0"}
-SPARK_VERSION=${SPARK_VERSION:-"2.0.0"}
+SPARK_VERSION=${SPARK_VERSION:-"2.1.0"}
 
 STORM_DIR="apache-storm-$STORM_VERSION"
 REDIS_DIR="redis-$REDIS_VERSION"
@@ -161,7 +161,7 @@ run() {
 
     #Fetch Storm
     STORM_FILE="$STORM_DIR.tar.gz"
-    fetch_untar_file "$STORM_FILE" "http://www.interior-dsgn.com/apache/storm/$STORM_DIR/$STORM_FILE"
+    fetch_untar_file "$STORM_FILE" "http://mirror.nexcess.net/apache/storm/$STORM_DIR/$STORM_FILE"
 
     #Fetch Flink
     FLINK_FILE="$FLINK_DIR-bin-hadoop27-scala_${SCALA_BIN_VERSION}.tgz"
